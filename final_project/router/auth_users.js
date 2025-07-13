@@ -3,7 +3,12 @@ const jwt = require("jsonwebtoken");
 let books = require("./booksdb.js");
 const regd_users = express.Router();
 
-let users = [];
+let users = [
+  {
+    username: "alice",
+    password: "123456",
+  },
+];
 
 const isValid = (username) => {
   if (!username || username.trim() === "") {
@@ -19,6 +24,21 @@ const authenticatedUser = (username, password) => {
   );
   return !!user;
 };
+
+regd_users.post("/register", function (req, res) {
+  const { username, password } = req.body;
+
+  if (isValid(username)) {
+    users.push({ username, password });
+    return res
+      .status(201)
+      .json({ message: "User successfully registered. Now you can login" });
+  } else {
+    return res
+      .status(400)
+      .json({ message: "Username already exists or is invalid" });
+  }
+});
 
 regd_users.post("/login", (req, res) => {
   const { username, password } = req.body;
@@ -72,4 +92,30 @@ regd_users.put("/auth/review/:isbn", (req, res) => {
   });
 });
 
-module.exports = { isValid, users, authenticatedUser, regd_users };
+regd_users.delete("/auth/review/:isbn", (req, res) => {
+  const isbn = req.params.isbn;
+  const username = req.session.authorization?.username;
+
+  if (!books[isbn]) {
+    return res.status(404).json({ message: "Book not found" });
+  }
+
+  if (!books[isbn].reviews) {
+    return res.status(404).json({ message: "No reviews found" });
+  }
+
+  if (!books[isbn].reviews[username]) {
+    return res.status(404).json({ message: "Review not found" });
+  }
+
+  delete books[isbn].reviews[username];
+
+  return res.status(200).json({
+    message: "Review deleted successfully",
+    reviews: books[isbn].reviews,
+  });
+});
+
+module.exports.authenticated = regd_users;
+module.exports.isValid = isValid;
+module.exports.users = users;
